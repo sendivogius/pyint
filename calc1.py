@@ -2,12 +2,11 @@
 #
 # EOF (end-of-file) token is used to indicate that
 # there is no more input left for lexical analysis
-INTEGER, PLUS, EOF = 'INTEGER', 'PLUS', 'EOF'
+INTEGER, PLUS, MINUS, WS, EOF = 'INTEGER', 'PLUS', 'MINUS', "WS", 'EOF'
 
 
 class Token(object):
     def __init__(self, type, value):
-        # token type: INTEGER, PLUS, or EOF
         self.type = type
         # token value: 0, 1, 2. 3, 4, 5, 6, 7, 8, 9, '+', or None
         self.value = value
@@ -37,7 +36,7 @@ class Interpreter(object):
     def error(self):
         raise Exception('Error parsing input')
 
-    def get_next_token(self):
+    def get_next_raw_token(self):
         """Lexical analyzer (also known as scanner or tokenizer)
 
         This method is responsible for breaking a sentence
@@ -55,31 +54,38 @@ class Interpreter(object):
         # what token to create based on the single character
         current_char = text[self.pos]
 
-        # if the character is a digit then convert it to
-        # integer, create an INTEGER token, increment self.pos
-        # index to point to the next character after the digit,
-        # and return the INTEGER token
         if current_char.isdigit():
-            token = Token(INTEGER, int(current_char))
-            self.pos += 1
-            return token
+            start_pos = self.pos
+            while current_char.isdigit():
+                self.pos += 1
+                current_char = text[self.pos] if self.pos < len(text) else ''
+            return Token(INTEGER, int(self.text[start_pos:self.pos]))
 
         if current_char == '+':
-            token = Token(PLUS, current_char)
             self.pos += 1
-            return token
+            return Token(PLUS, current_char)
+
+        if current_char == '-':
+            self.pos += 1
+            return Token(MINUS, current_char)
+
+        if current_char.isspace():
+            self.pos += 1
+            return Token(WS, current_char)
 
         self.error()
 
     def eat(self, token_type):
-        # compare the current token type with the passed token
-        # type and if they match then "eat" the current token
-        # and assign the next token to the self.current_token,
-        # otherwise raise an exception.
         if self.current_token.type == token_type:
             self.current_token = self.get_next_token()
         else:
             self.error()
+
+    def get_next_token(self):
+        token = self.get_next_raw_token()
+        while token.type == WS:
+            token = self.get_next_raw_token()
+        return token
 
     def expr(self):
         """expr -> INTEGER PLUS INTEGER"""
@@ -92,19 +98,14 @@ class Interpreter(object):
 
         # we expect the current token to be a '+' token
         op = self.current_token
-        self.eat(PLUS)
+        self.eat(PLUS if op.type == PLUS else MINUS)
 
-        # we expect the current token to be a single-digit integer
         right = self.current_token
         self.eat(INTEGER)
-        # after the above call the self.current_token is set to
-        # EOF token
-
-        # at this point INTEGER PLUS INTEGER sequence of tokens
-        # has been successfully found and the method can just
-        # return the result of adding two integers, thus
-        # effectively interpreting client input
-        result = left.value + right.value
+        if op.type == PLUS:
+            result = left.value + right.value
+        else:
+            result = left.value - right.value
         return result
 
 
