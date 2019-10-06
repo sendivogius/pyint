@@ -2,7 +2,7 @@
 #
 # EOF (end-of-file) token is used to indicate that
 # there is no more input left for lexical analysis
-INTEGER, PLUS, MINUS, EOF = 'INTEGER', 'PLUS', 'MINUS', 'EOF'
+INTEGER, PLUS, MINUS, EOF, MUL, DIV = 'INTEGER', 'PLUS', 'MINUS', 'EOF', 'MUL', 'DIV'
 
 
 class Token(object):
@@ -80,7 +80,15 @@ class Interpreter(object):
                 self.advance()
                 return Token(MINUS, '-')
 
-            self.error()
+            if self.current_char == '*':
+                self.advance()
+                return Token(MUL, '*')
+
+            if self.current_char == '/':
+                self.advance()
+                return Token(DIV, '/')
+
+            # self.error()
 
         return Token(EOF, None)
 
@@ -102,29 +110,31 @@ class Interpreter(object):
         # we expect the current token to be an integer
         left = self.current_token
         self.eat(INTEGER)
+        result = left.value
 
-        # we expect the current token to be either a '+' or '-'
-        op = self.current_token
-        if op.type == PLUS:
-            self.eat(PLUS)
-        else:
-            self.eat(MINUS)
+        while self.current_token.type != EOF:
+            op = self.current_token
+            self.eat(op.type)
 
-        # we expect the current token to be an integer
-        right = self.current_token
-        self.eat(INTEGER)
-        # after the above call the self.current_token is set to
-        # EOF token
+            # we expect the current token to be an integer
+            right = self.current_token
+            self.eat(INTEGER)
+            # after the above call the self.current_token is set to
+            # EOF token
 
-        # at this point either the INTEGER PLUS INTEGER or
-        # the INTEGER MINUS INTEGER sequence of tokens
-        # has been successfully found and the method can just
-        # return the result of adding or subtracting two integers,
-        # thus effectively interpreting client input
-        if op.type == PLUS:
-            result = left.value + right.value
-        else:
-            result = left.value - right.value
+            # at this point either the INTEGER PLUS INTEGER or
+            # the INTEGER MINUS INTEGER sequence of tokens
+            # has been successfully found and the method can just
+            # return the result of adding or subtracting two integers,
+            # thus effectively interpreting client input
+            if op.type == PLUS:
+                result = result + right.value
+            elif op.type == MINUS:
+                result = result - right.value
+            elif op.type == MUL:
+                result = result * right.value
+            else:
+                result = result / right.value
         return result
 
 
