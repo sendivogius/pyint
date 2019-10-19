@@ -2,7 +2,7 @@
 #
 # EOF (end-of-file) token is used to indicate that
 # there is no more input left for lexical analysis
-INTEGER, PLUS, MINUS, EOF = 'INTEGER', 'PLUS', 'MINUS', 'EOF'
+INTEGER, PLUS, MINUS, MUL, DIV, EOF = 'INTEGER', 'PLUS', 'MINUS', 'MUL', 'DIV', 'EOF'
 
 
 class Token(object):
@@ -35,8 +35,9 @@ class Interpreter(object):
         # self.pos is an index into self.text
         self.pos = 0
         # current token instance
-        self.current_token = None
         self.current_char = self.text[self.pos]
+        self.current_token = self.get_next_token()
+
 
     ##########################################################
     # Lexer code                                             #
@@ -87,6 +88,13 @@ class Interpreter(object):
                 self.advance()
                 return Token(MINUS, '-')
 
+            if self.current_char == '*':
+                self.advance()
+                return Token(MUL, '*')
+
+            if self.current_char == '/':
+                self.advance()
+                return Token(DIV, '/')
             self.error()
 
         return Token(EOF, None)
@@ -104,28 +112,14 @@ class Interpreter(object):
         else:
             self.error()
 
-    def term(self):
-        """Return an INTEGER token value."""
-        token = self.current_token
+    def factor(self):
         self.eat(INTEGER)
-        return token.value
 
     def expr(self):
-        """Arithmetic expression parser / interpreter."""
-        # set current token to the first token taken from the input
-        self.current_token = self.get_next_token()
-
-        result = self.term()
-        while self.current_token.type in (PLUS, MINUS):
-            token = self.current_token
-            if token.type == PLUS:
-                self.eat(PLUS)
-                result = result + self.term()
-            elif token.type == MINUS:
-                self.eat(MINUS)
-                result = result - self.term()
-
-        return result
+        self.factor()
+        while self.current_token.type in (MUL, DIV):
+            self.eat(self.current_token.type)
+            self.factor()
 
 
 def main():
