@@ -113,13 +113,31 @@ class Interpreter(object):
             self.error()
 
     def factor(self):
+        token = self.current_token
         self.eat(INTEGER)
+        return token.value
+
+    def term(self):
+        result = self.factor()
+        while self.current_token.type in (MUL, DIV):
+            token_type = self.current_token.type
+            self.eat(token_type)
+            if token_type == MUL:
+                result = result * self.factor()
+            else:
+                result = result / self.factor()
+        return result
 
     def expr(self):
-        self.factor()
-        while self.current_token.type in (MUL, DIV):
-            self.eat(self.current_token.type)
-            self.factor()
+        result = self.term()
+        while self.current_token.type in (PLUS, MINUS):
+            token_type = self.current_token.type
+            self.eat(token_type)
+            if token_type == PLUS:
+                result = result + self.term()
+            else:
+                result = result - self.term()
+        return result
 
 
 def main():
