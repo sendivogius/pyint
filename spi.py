@@ -242,6 +242,35 @@ class Interpreter(NodeVisitor):
         return self.visit(tree)
 
 
+class RPN(NodeVisitor):
+    def __init__(self, parser):
+        self.parser = parser
+
+    def visit_BinOp(self, node):
+        return self.visit(node.left) + ' ' + self.visit(node.right) + ' ' + node.op.value
+
+    def visit_Num(self, node):
+        return str(node.value)
+
+    def interpret(self):
+        tree = self.parser.parse()
+        return self.visit(tree)
+
+class LispNotation(NodeVisitor):
+    def __init__(self, parser):
+        self.parser = parser
+
+    def visit_BinOp(self, node):
+        return '(' + node.op.value + ' ' + self.visit(node.left) + ' ' + self.visit(node.right) + ')'
+
+    def visit_Num(self, node):
+        return str(node.value)
+
+    def interpret(self):
+        tree = self.parser.parse()
+        return self.visit(tree)
+
+
 def main():
     while True:
         try:
@@ -256,7 +285,7 @@ def main():
 
         lexer = Lexer(text)
         parser = Parser(lexer)
-        interpreter = Interpreter(parser)
+        interpreter = LispNotation(parser)
         result = interpreter.interpret()
         print(result)
 
