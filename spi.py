@@ -129,6 +129,12 @@ class BinOp(AST):
         self.right = right
 
 
+class UnaryOp(AST):
+    def __init__(self, op, expr):
+        self.token = self.op = op
+        self.expr = expr
+
+
 class Num(AST):
     def __init__(self, token):
         self.token = token
@@ -164,6 +170,10 @@ class Parser(object):
             self.eat(LPAREN)
             node = self.expr()
             self.eat(RPAREN)
+            return node
+        elif token.type in (PLUS, MINUS):
+            self.eat(token.type)
+            node = UnaryOp(token, self.expr())
             return node
 
     def term(self):
@@ -234,6 +244,12 @@ class Interpreter(NodeVisitor):
         elif node.op.type == DIV:
             return self.visit(node.left) / self.visit(node.right)
 
+    def visit_UnaryOp(self, node):
+        if node.op.type == PLUS:
+            return self.visit(node.expr)
+        elif node.op.type == MINUS:
+            return -self.visit(node.expr)
+
     def visit_Num(self, node):
         return node.value
 
@@ -255,6 +271,7 @@ class RPN(NodeVisitor):
     def interpret(self):
         tree = self.parser.parse()
         return self.visit(tree)
+
 
 class LispNotation(NodeVisitor):
     def __init__(self, parser):
@@ -285,7 +302,7 @@ def main():
 
         lexer = Lexer(text)
         parser = Parser(lexer)
-        interpreter = LispNotation(parser)
+        interpreter = Interpreter(parser)
         result = interpreter.interpret()
         print(result)
 
