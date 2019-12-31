@@ -10,8 +10,8 @@
 #
 # EOF (end-of-file) token is used to indicate that
 # there is no more input left for lexical analysis
-INTEGER, PLUS, MINUS, MUL, DIV, LPAREN, RPAREN, EOF, BEGIN, END, DOT, ASSIGN, SEMI, ID = (
-    'INTEGER', 'PLUS', 'MINUS', 'MUL', 'DIV', '(', ')', 'EOF', 'BEGIN', 'END', 'DOT', 'ASSIGN', 'SEMI', 'ID'
+INTEGER, PLUS, MINUS, MUL, DIV, LPAREN, RPAREN, EOF, BEGIN, END, DOT, ASSIGN, SEMI, ID, DIVINT = (
+    'INTEGER', 'PLUS', 'MINUS', 'MUL', 'DIV', '(', ')', 'EOF', 'BEGIN', 'END', 'DOT', 'ASSIGN', 'SEMI', 'ID', 'DIVINT'
 )
 
 
@@ -70,16 +70,21 @@ class Lexer(object):
     RESERVED_KEYWORDS = {
         'BEGIN': Token('BEGIN', 'BEGIN'),
         'END': Token('END', 'END'),
+        'DIV': Token('DIVINT', 'DIVINT'),
     }
+
+    @staticmethod
+    def can_be_id_start(c):
+        return c.isalnum() or c == '_'
 
     def _id(self):
         """Handle identifiers and reserved keywords"""
         result = ''
-        while self.current_char is not None and self.current_char.isalnum():
+        while self.current_char is not None and self.can_be_id_start(self.current_char):
             result += self.current_char
             self.advance()
 
-        token = self.RESERVED_KEYWORDS.get(result, Token(ID, result))
+        token = self.RESERVED_KEYWORDS.get(result.upper(), Token(ID, result))
         return token
 
     def integer(self):
@@ -102,7 +107,10 @@ class Lexer(object):
                 self.skip_whitespace()
                 continue
 
-            if self.current_char.isalpha():
+            if self.current_char.isdigit():
+                return Token(INTEGER, self.integer())
+
+            if self.can_be_id_start(self.current_char):
                 return self._id()
 
             if self.current_char == ':' and self.peek() == '=':
@@ -117,9 +125,6 @@ class Lexer(object):
             if self.current_char == '.':
                 self.advance()
                 return Token(DOT, '.')
-
-            if self.current_char.isdigit():
-                return Token(INTEGER, self.integer())
 
             if self.current_char == '+':
                 self.advance()
@@ -318,12 +323,14 @@ class Parser(object):
         """term : factor ((MUL | DIV) factor)*"""
         node = self.factor()
 
-        while self.current_token.type in (MUL, DIV):
+        while self.current_token.type in (MUL, DIV, DIVINT):
             token = self.current_token
             if token.type == MUL:
                 self.eat(MUL)
             elif token.type == DIV:
                 self.eat(DIV)
+            elif token.type == DIVINT:
+                self.eat(DIVINT)
 
             node = BinOp(left=node, op=token, right=self.factor())
 
@@ -385,6 +392,8 @@ class Interpreter(NodeVisitor):
             return self.visit(node.left) * self.visit(node.right)
         elif node.op.type == DIV:
             return self.visit(node.left) / self.visit(node.right)
+        elif node.op.type == DIVINT:
+            return self.visit(node.left) // self.visit(node.right)
 
     def visit_UnaryOp(self, node):
         if node.op.type == PLUS:
@@ -457,7 +466,8 @@ BEGIN
          number := 2;
          a := number;
          b := 10 * a + 10 * number / 4;
-         c := a - - b
+         c := a - - b;
+         _d := 10 DIV 3;
      END;
      x := 11;
 END.
