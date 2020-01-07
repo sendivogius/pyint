@@ -59,12 +59,23 @@ class Interpreter(object):
         while self.current_char is not None and self.current_char.isspace():
             self.advance()
 
-    def integer(self):
-        """Return a (multidigit) integer consumed from the input."""
+    def number(self):
+        """Return a (multidigit) integer or float consumed from the input."""
         result = ''
         while self.current_char is not None and self.current_char.isdigit():
             result += self.current_char
             self.advance()
+
+        if self.current_char != '.':
+            return Token(INTEGER_CONST, int(result))
+
+            result += self.current_char
+            self.advance()
+            while self.current_char is not None and self.current_char.isdigit():
+                result += self.current_char
+                self.advance()
+            return
+
         return int(result)
 
     def get_next_token(self):
@@ -80,7 +91,7 @@ class Interpreter(object):
                 continue
 
             if self.current_char.isdigit():
-                return Token(INTEGER, self.integer())
+                return Token(INTEGER, self.number())
 
             if self.current_char == '+':
                 self.advance()
