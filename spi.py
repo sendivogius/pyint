@@ -70,9 +70,9 @@ class SymbolTable:
 #
 # EOF (end-of-file) token is used to indicate that
 # there is no more input left for lexical analysis
-INTEGER, PLUS, MINUS, MUL, LPAREN, RPAREN, EOF, BEGIN, END, DOT, ASSIGN, SEMI, ID, PROGRAM, VAR, COLON, COMMA, REAL, INTEGER_CONST, REAL_CONST, INTEGER_DIV, FLOAT_DIV = (
+INTEGER, PLUS, MINUS, MUL, LPAREN, RPAREN, EOF, BEGIN, END, DOT, ASSIGN, SEMI, ID, PROGRAM, VAR, COLON, COMMA, REAL, INTEGER_CONST, REAL_CONST, INTEGER_DIV, FLOAT_DIV, PROCEDURE = (
     'INTEGER', 'PLUS', 'MINUS', 'MUL', '(', ')', 'EOF', 'BEGIN', 'END', 'DOT', 'ASSIGN', 'SEMI', 'ID', 'PROGRAM', 'VAR',
-    'COLON', 'COMMA', 'REAL', 'INTEGER_CONST', 'REAL_CONST', 'INTEGER_DIV', 'FLOAT_DIV'
+    'COLON', 'COMMA', 'REAL', 'INTEGER_CONST', 'REAL_CONST', 'INTEGER_DIV', 'FLOAT_DIV', 'PROCEDURE'
 )
 
 
@@ -141,6 +141,7 @@ class Lexer(object):
         'VAR': Token(VAR, 'VAR'),
         'REAL': Token(REAL, 'REAL'),
         'INTEGER': Token(INTEGER, 'INTEGER'),
+        'PROCEDURE': Token(PROCEDURE, 'PROCEDURE')
     }
 
     @staticmethod
@@ -310,6 +311,12 @@ class Type(AST):
     def __init__(self, token):
         self.token = token
         self.value = token.value
+
+
+class ProcedureDecl(AST):
+    def __init__(self, proc_name, block_code):
+        self.proc_name = proc_name
+        self.block_code = block_code
 
 
 class NoOp(AST):
@@ -498,6 +505,17 @@ class Parser(object):
                 var_decl = self.variable_declaration()
                 declarations.extend(var_decl)
                 self.eat(SEMI)
+
+        while self.current_token.type == PROCEDURE:
+            self.eat(PROCEDURE)
+            proc_name = self.current_token.value
+            self.eat(ID)
+            self.eat(SEMI)
+            block_node = self.block()
+            proc_decl = ProcedureDecl(proc_name, block_node)
+            declarations.append(proc_decl)
+            self.eat(SEMI)
+
         return declarations
 
     def variable_declaration(self):
@@ -579,6 +597,9 @@ class Interpreter(NodeVisitor):
         pass
 
     def visit_Type(self, node):
+        pass
+
+    def visit_ProcedureDecl(self, node):
         pass
 
     GLOBAL_SCOPE = dict()
@@ -683,21 +704,35 @@ class SymbolTableBuilder(NodeVisitor):
         if var_symbol is None:
             raise NameError(repr(var_name))
 
+    def visit_ProcedureDecl(self, node):
+        pass
+
 
 def main():
     text = """
-PROGRAM Part11;
+PROGRAM Part12;
 VAR
-   number : INTEGER;
-   a, b   : INTEGER;
-   y      : REAL;
+   a : INTEGER;
 
-BEGIN {Part11}
-   number := 2;
-   a := number ;
-   b := 10 * a + 10 * number DIV 4;
-   y := 20 / 7 + 3.14
-END.  {Part11}
+PROCEDURE P1;
+VAR
+   a : REAL;
+   k : INTEGER;
+
+   PROCEDURE P2;
+   VAR
+      a, z : INTEGER;
+   BEGIN {P2}
+      z := 777;
+   END;  {P2}
+
+BEGIN {P1}
+
+END;  {P1}
+
+BEGIN {Part12}
+   a := 10;
+END.  {Part12}
 """
     lexer = Lexer(text)
     parser = Parser(lexer)
