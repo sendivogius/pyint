@@ -15,13 +15,15 @@ class Symbol:
 
 
 class BuiltinTypeSymbol(Symbol):
+
     def __init__(self, name):
         super().__init__(name)
 
     def __str__(self):
         return self.name
 
-    __repr__ = __str__
+    def __repr__(self):
+        return f'<{self.__class__.__name__}(name={self.name})>'
 
 
 class VarSymbol(Symbol):
@@ -29,9 +31,10 @@ class VarSymbol(Symbol):
         super().__init__(name, type)
 
     def __str__(self):
-        return f'<{self.name}:{self.type}>'
+        return self.name
 
-    __repr__ = __str__
+    def __repr__(self):
+        return f'<{self.__class__.__name__}(name={self.name}, type={self.type})>'
 
 
 class SymbolTable:
@@ -653,7 +656,7 @@ class LispNotation(NodeVisitor):
         return self.visit(tree)
 
 
-class SymbolTableBuilder(NodeVisitor):
+class SemanticAnalyzer(NodeVisitor):
     def __init__(self):
         self.symtab = SymbolTable()
 
@@ -685,16 +688,17 @@ class SymbolTableBuilder(NodeVisitor):
     def visit_VarDecl(self, node):
         type_name = node.type_node.value
         type_symbol = self.symtab.lookup(type_name)
+
         var_name = node.var_node.value
         var_symbol = VarSymbol(var_name, type_symbol)
+
+        if self.symtab.lookup(var_name) is not None:
+            raise Exception(f'Error: Duplicate identifier found {var_name}')
+
         self.symtab.define(var_symbol)
 
     def visit_Assign(self, node):
-        var_name = node.left.value
-        var_symbol = self.symtab.lookup(var_name)
-        if var_symbol is None:
-            raise NameError(repr(var_name))
-
+        self.visit(node.left)
         self.visit(node.right)
 
     def visit_Var(self, node):
@@ -702,7 +706,7 @@ class SymbolTableBuilder(NodeVisitor):
         var_symbol = self.symtab.lookup(var_name)
 
         if var_symbol is None:
-            raise NameError(repr(var_name))
+            raise Exception(f'Error: Symbol (identifier) not found {var_name}')
 
     def visit_ProcedureDecl(self, node):
         pass
@@ -710,34 +714,18 @@ class SymbolTableBuilder(NodeVisitor):
 
 def main():
     text = """
-PROGRAM Part12;
-VAR
-   a : INTEGER;
-
-PROCEDURE P1;
-VAR
-   a : REAL;
-   k : INTEGER;
-
-   PROCEDURE P2;
-   VAR
-      a, z : INTEGER;
-   BEGIN {P2}
-      z := 777;
-   END;  {P2}
-
-BEGIN {P1}
-
-END;  {P1}
-
-BEGIN {Part12}
-   a := 10;
-END.  {Part12}
+program SymTab6;
+   var 
+   x, y : integer;
+   x : real;
+begin
+   x := x + y;
+end.
 """
     lexer = Lexer(text)
     parser = Parser(lexer)
     tree = parser.parse()
-    symtab_builder = SymbolTableBuilder()
+    symtab_builder = SemanticAnalyzer()
     symtab_builder.visit(tree)
     print(symtab_builder.symtab)
     interpreter = Interpreter(tree)
