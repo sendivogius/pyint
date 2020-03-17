@@ -87,11 +87,14 @@ class ScopedSymbolTable:
 
     __repr__ = __str__
 
-    def lookup(self, name):
+    def lookup(self, name, current_scope_only=False):
         print('Lookup: %s. (Scope name: %s)' % (name, self.scope_name))
         symbol = self._symbols.get(name)
         if symbol is not None:
             return symbol
+
+        if current_scope_only:
+            return None
 
         if self.enclosing_scope is not None:
             return self.enclosing_scope.lookup(name)
@@ -779,8 +782,8 @@ class SemanticAnalyzer(NodeVisitor):
         var_name = node.var_node.value
         var_symbol = VarSymbol(var_name, type_symbol)
 
-        # if self.symtab.lookup(var_name) is not None:
-        #     raise Exception(f'Error: Duplicate identifier found {var_name}')
+        if self.current_scope.lookup(var_name, current_scope_only=True):
+            raise Exception(f'Error: Duplicate identifier found {var_name}')
 
         self.current_scope.define(var_symbol)
 
@@ -820,12 +823,16 @@ def main():
     text = """
 program Main;
    var x, y: real;
+
    procedure Alpha(a : integer);
       var y : integer;
+      var a : real;  { ERROR here! }
    begin
       x := a + x + y;
    end;
+
 begin { Main }
+
 end.  { Main }
 """
     lexer = Lexer(text)
