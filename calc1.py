@@ -49,6 +49,7 @@ class Interpreter(object):
 
     def advance(self):
         """Advance the `pos` pointer and set the `current_char` variable."""
+
         self.pos += 1
         if self.pos > len(self.text) - 1:
             self.current_char = None  # Indicates end of input
