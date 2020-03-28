@@ -420,6 +420,13 @@ class ProcedureDecl(AST):
         self.block_node = block_node
 
 
+class ProcedureCall(AST):
+    def __init__(self, proc_name, actual_params, token):
+        self.proc_name = proc_name
+        self.actual_params = actual_params
+        self.token = token
+
+
 class NoOp(AST):
     pass
 
@@ -508,10 +515,38 @@ class Parser(object):
         """
         if self.current_token.type == TokenType.BEGIN:
             node = self.compound_statement()
+        elif self.current_token.type == TokenType.ID and self.lexer.current_char == '(':
+            node = self.proccall_statement()
         elif self.current_token.type == TokenType.ID:
             node = self.assignment_statement()
         else:
             node = self.empty()
+        return node
+
+    def proccall_statement(self):
+        """proccall_statement : ID LPAREN (expr (COMMA expr)*)? RPAREN"""
+        token = self.current_token
+
+        proc_name = self.current_token.value
+        self.eat(TokenType.ID)
+        self.eat(TokenType.LPAREN)
+        actual_params = []
+        if self.current_token.type != TokenType.RPAREN:
+            node = self.expr()
+            actual_params.append(node)
+
+        while self.current_token.type == TokenType.COMMA:
+            self.eat(TokenType.COMMA)
+            node = self.expr()
+            actual_params.append(node)
+
+        self.eat(TokenType.RPAREN)
+
+        node = ProcedureCall(
+            proc_name=proc_name,
+            actual_params=actual_params,
+            token=token,
+        )
         return node
 
     def assignment_statement(self):
@@ -756,6 +791,9 @@ class Interpreter(NodeVisitor):
     def visit_ProcedureDecl(self, node):
         pass
 
+    def visit_ProcedureCall(self, node):
+        pass
+
     GLOBAL_SCOPE = dict()
 
     def visit_Assign(self, node):
@@ -898,6 +936,10 @@ class SemanticAnalyzer(NodeVisitor):
         print(proc_scope)
         self.current_scope = self.current_scope.enclosing_scope
         print(f'LEAVE scope: {proc_name}')
+
+    def visit_ProcedureCall(self, node):
+        for param_node in node.actual_params:
+            self.visit(param_node)
 
 
 def main():
