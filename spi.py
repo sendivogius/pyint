@@ -8,6 +8,7 @@ class ErrorCode(Enum):
     UNEXPECTED_TOKEN = 'Unexpected token'
     ID_NOT_FOUNT = 'Identifier not found'
     DUPLICATE_ID = 'Duplicate id found'
+    WRONG_ARG_NUMBER = 'Wrong number of arguments'
 
 
 class Error(Exception):
@@ -938,6 +939,10 @@ class SemanticAnalyzer(NodeVisitor):
         print(f'LEAVE scope: {proc_name}')
 
     def visit_ProcedureCall(self, node):
+        expected_args = len(self.current_scope.lookup(node.proc_name).params)
+        actual_params = len(node.actual_params)
+        if actual_params != expected_args:
+            self.error(error_code=ErrorCode.WRONG_ARG_NUMBER, token=node.token)
         for param_node in node.actual_params:
             self.visit(param_node)
 
