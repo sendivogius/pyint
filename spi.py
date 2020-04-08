@@ -71,6 +71,7 @@ class ProcedureSymbol(Symbol):
     def __init__(self, name, params=None):
         super().__init__(name)
         self.params = params or []
+        self.block_ast = None
 
     def __str__(self):
         return '<{class_name}(name={name}, parameters={params})>'.format(
@@ -426,6 +427,7 @@ class ProcedureCall(AST):
         self.proc_name = proc_name
         self.actual_params = actual_params
         self.token = token
+        self.proc_symbol = None
 
 
 class NoOp(AST):
@@ -815,9 +817,28 @@ class Interpreter(NodeVisitor):
         pass
 
     def visit_ProcedureCall(self, node):
-        pass
+        proc_name = node.proc_name
+        ar = ActiveRecord(proc_name, ARType.PROCEDURE, 2)
 
-    GLOBAL_SCOPE = dict()
+        proc_symbol = node.proc_symbol
+        formal_params = proc_symbol.params
+        actual_params = node.actual_params
+
+        for param_symbol, argument_node in zip(formal_params, actual_params):
+            ar[param_symbol.name] = self.visit(argument_node)
+
+        self.call_stack.push(ar)
+
+        self.log(f'ENTER: PROCEDURE {proc_name}')
+        self.log(str(self.call_stack))
+
+        # evaluate procedure body
+        self.visit(proc_symbol.block_ast)
+
+        self.log(f'LEAVE: PROCEDURE {proc_name}')
+        self.log(str(self.call_stack))
+
+        self.call_stack.pop()
 
     def visit_Assign(self, node):
         var_name = node.left.value
@@ -959,6 +980,7 @@ class SemanticAnalyzer(NodeVisitor):
         print(proc_scope)
         self.current_scope = self.current_scope.enclosing_scope
         print(f'LEAVE scope: {proc_name}')
+        proc_symbol.block_ast = node.block_node
 
     def visit_ProcedureCall(self, node):
         expected_args = len(self.current_scope.lookup(node.proc_name).params)
@@ -967,6 +989,7 @@ class SemanticAnalyzer(NodeVisitor):
             self.error(error_code=ErrorCode.WRONG_ARG_NUMBER, token=node.token)
         for param_node in node.actual_params:
             self.visit(param_node)
+        node.proc_symbol = self.current_scope.lookup(node.proc_name)
 
 
 class CallStack:
@@ -993,6 +1016,7 @@ class CallStack:
 
 class ARType(Enum):
     PROGRAM = 'PROGRAM'
+    PROCEDURE = 'PROCEDURE'
 
 
 class ActiveRecord:
