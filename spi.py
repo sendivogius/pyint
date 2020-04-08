@@ -749,6 +749,7 @@ class NodeVisitor(object):
 class Interpreter(NodeVisitor):
     def __init__(self, tree):
         self.tree = tree
+        self.call_stack = CallStack()
 
     def visit_BinOp(self, node):
         if node.op.type == TokenType.PLUS:
@@ -775,8 +776,29 @@ class Interpreter(NodeVisitor):
     def visit_NoOp(self, node):
         pass
 
+    def log(self, msg):
+        if _SHOULD_LOG_STACK:
+            print(msg)
+
     def visit_Program(self, node):
+        program_name = node.name
+        self.log(f'ENTER: PROGRAM {program_name}')
+
+        ar = ActiveRecord(
+            name=program_name,
+            type=ARType.PROGRAM,
+            nesting_level=1,
+        )
+        self.call_stack.push(ar)
+
+        self.log(str(self.call_stack))
+
         self.visit(node.block)
+
+        self.log(f'LEAVE: PROGRAM {program_name}')
+        self.log(str(self.call_stack))
+
+        self.call_stack.pop()
 
     def visit_Block(self, node):
         for declaration in node.declarations:
@@ -799,11 +821,11 @@ class Interpreter(NodeVisitor):
 
     def visit_Assign(self, node):
         var_name = node.left.value
-        self.GLOBAL_SCOPE[var_name] = self.visit(node.right)
+        self.call_stack.peek()[var_name] = self.visit(node.right)
 
     def visit_Var(self, node):
         var_name = node.value
-        val = self.GLOBAL_SCOPE.get(var_name)
+        val = self.call_stack.peek().get(var_name)
         return val
 
     def visit_Num(self, node):
@@ -947,6 +969,66 @@ class SemanticAnalyzer(NodeVisitor):
             self.visit(param_node)
 
 
+class CallStack:
+    def __init__(self):
+        self._records = []
+
+    def push(self, ar):
+        self._records.append(ar)
+
+    def pop(self):
+        return self._records.pop()
+
+    def peek(self):
+        return self._records[-1]
+
+    def __str__(self):
+        s = '\n'.join(repr(ar) for ar in reversed(self._records))
+        s = f'CALL STACK\n{s}\n'
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class ARType(Enum):
+    PROGRAM = 'PROGRAM'
+
+
+class ActiveRecord:
+    def __init__(self, name, type, nesting_level):
+        self.name = name
+        self.type = type
+        self.nesting_level = nesting_level
+        self.members = {}
+
+    def __setitem__(self, key, value):
+        self.members[key] = value
+
+    def __getitem__(self, key):
+        return self.members[key]
+
+    def get(self, key):
+        return self.members.get(key)
+
+    def __str__(self):
+        lines = [
+            '{level}: {type} {name}'.format(
+                level=self.nesting_level,
+                type=self.type.value,
+                name=self.name,
+            )
+        ]
+        for name, val in self.members.items():
+            lines.append(f'   {name:<20}: {val}')
+
+        s = '\n'.join(lines)
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='SPI - Simple Pascal Interpreter'
@@ -957,9 +1039,15 @@ def main():
         help='Print scope information',
         action='store_true',
     )
+    parser.add_argument(
+        '--stack',
+        help='Print stack information',
+        action='store_true',
+    )
     args = parser.parse_args()
-    global _SHOULD_LOG_SCOPE
+    global _SHOULD_LOG_SCOPE, _SHOULD_LOG_STACK
     _SHOULD_LOG_SCOPE = args.scope
+    _SHOULD_LOG_STACK = args.stack
 
     text = open(args.inputfile, 'r').read()
 
