@@ -41,6 +41,7 @@ class Symbol:
     def __init__(self, name, type=None):
         self.name = name
         self.type = type
+        self.scope_level = 0
 
 
 class BuiltinTypeSymbol(Symbol):
@@ -135,6 +136,7 @@ class ScopedSymbolTable:
 
     def define(self, symbol):
         self.log(f'Define: {symbol.name}')
+        symbol.scope_level = self.scope_level
         self._symbols[symbol.name] = symbol
 
 
@@ -818,7 +820,8 @@ class Interpreter(NodeVisitor):
 
     def visit_ProcedureCall(self, node):
         proc_name = node.proc_name
-        ar = ActiveRecord(proc_name, ARType.PROCEDURE, 2)
+        proc_symbol = node.proc_symbol
+        ar = ActiveRecord(proc_name, ARType.PROCEDURE, proc_symbol.scope_level + 1)
 
         proc_symbol = node.proc_symbol
         formal_params = proc_symbol.params
